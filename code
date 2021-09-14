@@ -1,0 +1,135 @@
+/*
+code = แก้ไข sheetid, datarange, add sheet api
+index.html = กำหนด table id ใน index ให้ตรงกับ js, edit index title-> setTitle ใน code , nav bar, footer
+js = showData column title (ต้องใส่ทุกคอลัมภ์ ถึงแม้จะซ่อน ใส่ null), columnDefs (hide column)
+-- แก้ไข trigger create PDF on form submit --> initData
+*/
+
+function doGet(e) {
+  if (!e.parameter.page) {
+    var htmlOutput = HtmlService.createTemplateFromFile("index");
+    return htmlOutput.evaluate().setTitle("WebAppDT-HomeVisit").setSandboxMode(HtmlService.SandboxMode.IFRAME).addMetaTag("viewport", "width=device-width, initial-scale=1");
+  }
+  return HtmlService.createTemplateFromFile(e.parameter["page"]).evaluate();
+}
+
+/** เรียก URL */
+function getUrl() {
+  var url = ScriptApp.getService().getUrl();
+  return url;
+}
+
+/** ดึงไฟล์ */
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+/** ดึงข้อมูลให้ไปแสดง DataTable */
+function getData() {
+  var ssId = "1T7KYXFezhEx3rphK5ljqqn7SRammcTDbNoFObmtV4o8"; // ID ชีต
+  var dataRange = "Form Responses 1!c2:bk"; // ชื่อชีตและช่วงของข้อมูล
+  var range = Sheets.Spreadsheets.Values.get(ssId, dataRange);
+  var values = range.values;
+  
+  // ss = SpreadsheetApp.openById(ssId)
+  //var sheet = ss.getSheets()[0] //เลือก แผ่นงานที่ 0 (แผ่นงานแรก)
+  //var range = sheet.getDataRange()
+  //var values =range.getDisplayValues()
+
+  values = values.map(function (row) {
+    return row.concat([0]);
+  });
+
+    Logger.log(values);
+  return values;
+}
+
+/*
+Creat
+1. g.form -> g.sheet -> Form Responses 1
+2. g.slide (school name, logo)
+3. folder "PDF"
+Edit 
+1. sheetID
+2. slideID
+Add
+1. PDFLibrary version 51
+  - id: 1iePjnglUzelAuJJb-QykRcUUWYBSKiNGUWVljnNe03G9zWzSUGIRWLXa
+  - initAllData = all data
+  - 
+2. Service : drive API
+
+//เครดิต อ.ดรัณภพ ยิ้มแย้ม 
+//ลิ้งค์เว็บบทความ https://makrookyimyam.medium.com/%E0%B8%81%E0%B8%B2%E0%B8%A3%E0%B8%AA%E0%B8%A3%E0%B9%89%E0%B8%B2%E0%B8%87-pdf-%E0%B8%88%E0%B8%B2%E0%B8%81%E0%B8%82%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%B9%E0%B8%A5%E0%B9%83%E0%B8%99-google-sheet-%E0%B8%94%E0%B9%89%E0%B8%A7%E0%B8%A2%E0%B9%84%E0%B8%A5%E0%B8%9A%E0%B8%A3%E0%B8%B2%E0%B8%A3%E0%B8%B5-pdfservice-5066b09649f0
++++++++++++++++++++++++++++++++++
+*/
+
+function runPDF(){
+ var sheetId = '1T7KYXFezhEx3rphK5ljqqn7SRammcTDbNoFObmtV4o8' 
+ var slideId = '1daJAjfemUYTa2QDn1jIkHZk9avZPHGCme6t8H_EQM1E'
+
+ var pdfFolder = DriveApp.getFoldersByName('PDFHV').next()
+ var templateFile = DriveApp.getFileById(slideId)
+ // ดึงข้อมูลแถวล่าสุด
+ var data =PdfService.initData(sheetId, 'Form Responses 1') 
+ // ดึงข้อมูลทุกแถว
+ // var data =PdfService.initAllData(sheetId, 'Form Responses 1') 
+ 
+ var option = {
+  pdfFolder: pdfFolder,
+  templateFile: templateFile,
+  data: data,
+  image_column: ['รูปถ่าย','ภาพในบ้าน','ภาพนอกบ้าน'],
+  fileName: ['ชื่อ','นามสกุล','ชั้น','ห้อง']
+}
+  PdfService.createPDFFromSlide(option)
+
+ var sheetname = SpreadsheetApp.openById(sheetId).getSheetByName('sheet2')
+ var allFiles = pdfFolder.getFiles()
+ var file = allFiles.next() 
+    data = [
+      file.getName(),
+      file.getUrl(),
+      '=HYPERLINK("https://drive.google.com/uc?export=download&confirm=no_antivirus&id='+ file.getId()+'","download")'
+      ]
+      sheetname.appendRow(data)
+  }
+
+/*
+
+function getLatestFileId(){
+
+   var folder = DriveApp.getFoldersByName("Aff Comm");
+   var files = folder.next().getFiles();
+   var lastFileId = files.next().getId();
+
+   return lastFileId.toString();
+}
+
+//append row ทุก file 
+ var sheetname = SpreadsheetApp.openById(sheetId).getSheetByName('sheet2')
+ var allFiles = pdfFolder.getFiles()
+ var i = 0
+ var file
+
+  while (allFiles.hasNext()) {
+    file = allFiles.next()
+    i++
+    data = [
+      file.getName(),
+      file.getUrl(),
+      '=HYPERLINK("https://drive.google.com/uc?export=download&confirm=no_antivirus&id='+ file.getId()+'","download")'
+      ]
+      sheetname.appendRow(data)
+  }
+*/
+
+/* ไม่ได้ใช้ ใส่ trigger on Form Submit แทน 
+function onOpen() {
+  var ui = SpreadsheetApp.getUi();
+  ui.createMenu('PDF')
+    .addItem('สร้างไฟล์PDF','runPDF')
+    .addToUi();
+  
+}
+*/
